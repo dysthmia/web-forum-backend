@@ -21,6 +21,7 @@ help:
 	@echo 'make build             - build the API'
 	@echo 'make test              - run the test project'
 	@echo 'make ps                - show containers'
+	@echo 'make down              - stop containers'
 
 postgres-up:
 	@mkdir -p "$(PROJECT_ROOT)/out/pgdata"
@@ -53,6 +54,7 @@ redis-logs:
 	@docker compose logs -f redis
 
 migrate:
+	@docker compose --profile tools build migrate
 	@docker compose --profile tools run --rm migrate
 
 app-build:
@@ -76,3 +78,6 @@ test:
 
 ps:
 	@docker compose ps -a
+
+down:
+	@docker compose down

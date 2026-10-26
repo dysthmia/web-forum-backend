@@ -62,12 +62,13 @@ services:
       CONTENT_RATE_LIMIT_WINDOW_SECONDS: ${CONTENT_RATE_LIMIT_WINDOW_SECONDS:?Set CONTENT_RATE_LIMIT_WINDOW_SECONDS in .env}
       LOGGING__LOGLEVEL__DEFAULT: ${LOGGING__LOGLEVEL__DEFAULT:?Set LOGGING__LOGLEVEL__DEFAULT in .env}
       LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE: ${LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE:?Set LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE in .env}
-    command: >
-      /tools/dotnet-ef migrations bundle
-      --project src/Forum.Api/Forum.Api.csproj
-      --startup-project src/Forum.Api/Forum.Api.csproj
-      --output /tmp/efbundle --force
-      && /tmp/efbundle
+    command:
+      - >
+        /tools/dotnet-ef migrations bundle
+        --project src/Forum.Api/Forum.Api.csproj
+        --startup-project src/Forum.Api/Forum.Api.csproj
+        --output /tmp/efbundle --force
+        && /tmp/efbundle
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,6 +76,7 @@ services:
 
   api:
     profiles: ["runtime"]
+    container_name: web-forum-api-1
     build:
       context: .
       dockerfile: Dockerfile
