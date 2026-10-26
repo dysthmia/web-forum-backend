@@ -1,0 +1,94 @@
+name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME in .env}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME in .env}-postgres16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+    volumes:
+      - ${PROJECT_ROOT:-.}/out/pgdata:/var/lib/postgresql/data
+    restart: always
+    ports:
+      - ${POSTGRES_HOST_PORT:?Set POSTGRES_HOST_PORT in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:?Set COMPOSE_PROJECT_NAME in .env}-redis
+    restart: always
+    ports:
+      - ${REDIS_HOST_PORT:?Set REDIS_HOST_PORT in .env}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    environment: &api-environment
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:?Set ASPNETCORE_ENVIRONMENT in .env}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT__ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER in .env}
+      JWT__AUDIENCE: ${JWT_AUDIENCE:?Set JWT_AUDIENCE in .env}
+      JWT__SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT__ACCESSTOKENMINUTES: ${JWT_ACCESS_TOKEN_MINUTES:?Set JWT_ACCESS_TOKEN_MINUTES in .env}
+      JWT__REFRESHTOKENDAYS: ${JWT_REFRESH_TOKEN_DAYS:?Set JWT_REFRESH_TOKEN_DAYS in .env}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:?Set CACHE_TTL_SECONDS in .env}
+      VIEW_WINDOW_MINUTES: ${VIEW_WINDOW_MINUTES:?Set VIEW_WINDOW_MINUTES in .env}
+      VIEW_FLUSH_INTERVAL_SECONDS: ${VIEW_FLUSH_INTERVAL_SECONDS:?Set VIEW_FLUSH_INTERVAL_SECONDS in .env}
+      LOGIN_RATE_LIMIT_REQUESTS: ${LOGIN_RATE_LIMIT_REQUESTS:?Set LOGIN_RATE_LIMIT_REQUESTS in .env}
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS:?Set LOGIN_RATE_LIMIT_WINDOW_SECONDS in .env}
+      CONTENT_RATE_LIMIT_REQUESTS: ${CONTENT_RATE_LIMIT_REQUESTS:?Set CONTENT_RATE_LIMIT_REQUESTS in .env}
+      CONTENT_RATE_LIMIT_WINDOW_SECONDS: ${CONTENT_RATE_LIMIT_WINDOW_SECONDS:?Set CONTENT_RATE_LIMIT_WINDOW_SECONDS in .env}
+      LOGGING__LOGLEVEL__DEFAULT: ${LOGGING__LOGLEVEL__DEFAULT:?Set LOGGING__LOGLEVEL__DEFAULT in .env}
+      LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE: ${LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE:?Set LOGGING__LOGLEVEL__MICROSOFT_ASPNETCORE in .env}
+    command: >
+      /tools/dotnet-ef migrations bundle
+      --project src/Forum.Api/Forum.Api.csproj
+      --startup-project src/Forum.Api/Forum.Api.csproj
+      --output /tmp/efbundle --force
+      && /tmp/efbundle
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    profiles: ["runtime"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    environment:
+      <<: *api-environment
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS:?Set ASPNETCORE_URLS in .env}
+    ports:
+      - ${API_HOST_PORT:?Set API_HOST_PORT in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
