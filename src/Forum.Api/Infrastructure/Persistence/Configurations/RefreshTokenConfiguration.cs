@@ -13,7 +13,7 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
             "expires_at > created_at"));
 
         builder.HasKey(token => token.Id);
-        builder.Property(token => token.Id).UseIdentityByDefaultColumn();
+        builder.Property(token => token.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(token => token.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(token => token.TokenHash).HasColumnName("token_hash").IsRequired();
         builder.Property(token => token.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone").HasDefaultValueSql("CURRENT_TIMESTAMP").IsRequired();

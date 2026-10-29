@@ -11,7 +11,7 @@ public class TopicConfiguration : IEntityTypeConfiguration<Topic>
         builder.ToTable("topics", table => table.HasCheckConstraint("ck_topics_view_count", "view_count >= 0"));
 
         builder.HasKey(topic => topic.Id);
-        builder.Property(topic => topic.Id).UseIdentityByDefaultColumn();
+        builder.Property(topic => topic.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(topic => topic.CategoryId).HasColumnName("category_id").IsRequired();
         builder.Property(topic => topic.AuthorId).HasColumnName("author_id").IsRequired();
         builder.Property(topic => topic.Title).HasColumnName("title").HasColumnType("varchar(200)").IsRequired();

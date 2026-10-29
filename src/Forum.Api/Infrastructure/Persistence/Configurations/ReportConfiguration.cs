@@ -17,7 +17,7 @@ public class ReportConfiguration : IEntityTypeConfiguration<Report>
         });
 
         builder.HasKey(report => report.Id);
-        builder.Property(report => report.Id).UseIdentityByDefaultColumn();
+        builder.Property(report => report.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(report => report.ReporterId).HasColumnName("reporter_id").IsRequired();
         builder.Property(report => report.PostId).HasColumnName("post_id").IsRequired();
         builder.Property(report => report.Reason).HasColumnName("reason").IsRequired();

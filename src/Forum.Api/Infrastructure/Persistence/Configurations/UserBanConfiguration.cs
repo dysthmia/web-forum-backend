@@ -13,7 +13,7 @@ public class UserBanConfiguration : IEntityTypeConfiguration<UserBan>
             "expires_at IS NULL OR expires_at > created_at"));
 
         builder.HasKey(ban => ban.Id);
-        builder.Property(ban => ban.Id).UseIdentityByDefaultColumn();
+        builder.Property(ban => ban.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(ban => ban.UserId).HasColumnName("user_id").IsRequired();
         builder.Property(ban => ban.ModeratorId).HasColumnName("moderator_id").IsRequired();
         builder.Property(ban => ban.Reason).HasColumnName("reason").IsRequired();

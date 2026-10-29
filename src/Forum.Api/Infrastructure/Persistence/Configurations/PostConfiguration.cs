@@ -11,7 +11,7 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.ToTable("posts", table => table.HasCheckConstraint("ck_posts_position", "position >= 1"));
 
         builder.HasKey(post => post.Id);
-        builder.Property(post => post.Id).UseIdentityByDefaultColumn();
+        builder.Property(post => post.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(post => post.TopicId).HasColumnName("topic_id").IsRequired();
         builder.Property(post => post.AuthorId).HasColumnName("author_id").IsRequired();
         builder.Property(post => post.Position).HasColumnName("position").IsRequired();

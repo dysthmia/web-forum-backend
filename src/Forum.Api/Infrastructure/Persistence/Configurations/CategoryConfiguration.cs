@@ -15,7 +15,7 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         });
 
         builder.HasKey(category => category.Id);
-        builder.Property(category => category.Id).UseIdentityByDefaultColumn();
+        builder.Property(category => category.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(category => category.Name).HasColumnName("name").HasColumnType("varchar(100)").IsRequired();
         builder.Property(category => category.Slug).HasColumnName("slug").HasColumnType("varchar(100)").IsRequired();
         builder.Property(category => category.Description).HasColumnName("description").HasColumnType("varchar(1000)");

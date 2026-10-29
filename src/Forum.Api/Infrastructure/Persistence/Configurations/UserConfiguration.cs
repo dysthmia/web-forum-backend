@@ -13,7 +13,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             "role IN ('user', 'moderator', 'admin')"));
 
         builder.HasKey(user => user.Id);
-        builder.Property(user => user.Id).UseIdentityByDefaultColumn();
+        builder.Property(user => user.Id).HasColumnName("id").UseIdentityByDefaultColumn();
         builder.Property(user => user.Username).HasColumnName("username").HasColumnType("varchar(32)").IsRequired();
         builder.Property(user => user.Email).HasColumnName("email").HasColumnType("varchar(254)").IsRequired();
         builder.Property(user => user.PasswordHash).HasColumnName("password_hash").IsRequired();
