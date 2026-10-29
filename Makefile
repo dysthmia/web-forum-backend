@@ -62,7 +62,7 @@ app-build:
 
 app-up:
 	@mkdir -p "$(PROJECT_ROOT)/out/pgdata"
-	@docker compose --profile runtime up -d api
+	@docker compose --profile runtime up -d --build api
 
 app-down:
 	@docker compose --profile runtime stop api
