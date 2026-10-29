@@ -2,6 +2,7 @@ using Forum.Api.Common.Authorization;
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Forum.Api.Features.Auth;
 
@@ -56,7 +57,8 @@ public class AuthService(
         {
             await dbContext.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             return AuthResult.Failed(AuthFailure.DuplicateUser);
         }

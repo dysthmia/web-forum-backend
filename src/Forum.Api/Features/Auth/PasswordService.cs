@@ -29,7 +29,8 @@ public static class PasswordServiceRegistration
 {
     public static IServiceCollection AddForumPasswordHashing(this IServiceCollection services, IConfiguration configuration)
     {
-        var iterations = configuration.GetValue<int?>("PASSWORD_HASH_ITERATIONS") ?? 100_000;
+        var iterations = configuration.GetValue<int?>("PASSWORD_HASH_ITERATIONS")
+            ?? throw new InvalidOperationException("PASSWORD_HASH_ITERATIONS is required.");
         if (iterations < 10_000)
         {
             throw new InvalidOperationException("PASSWORD_HASH_ITERATIONS must be at least 10000.");
