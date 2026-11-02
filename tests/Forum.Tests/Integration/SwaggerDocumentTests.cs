@@ -43,7 +43,9 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
             ["JWT_SECRET"] = "01234567890123456789012345678901",
             ["JWT_ACCESS_TOKEN_MINUTES"] = "15",
             ["JWT_REFRESH_TOKEN_DAYS"] = "30",
-            ["PASSWORD_HASH_ITERATIONS"] = "10000"
+            ["PASSWORD_HASH_ITERATIONS"] = "10000",
+            ["TOPICS_DEFAULT_PAGE_SIZE"] = "20",
+            ["TOPICS_MAX_PAGE_SIZE"] = "50"
         };
 
         private readonly Dictionary<string, string?> _originalEnvironmentValues = new();

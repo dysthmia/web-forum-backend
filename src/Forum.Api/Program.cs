@@ -20,9 +20,11 @@ builder.Services.AddSwaggerGen(options =>
 
 var jwtOptions = JwtOptionsFactory.Create(builder.Configuration);
 var refreshTokenOptions = RefreshTokenOptionsFactory.Create(builder.Configuration);
+var topicPaginationOptions = TopicPaginationOptionsFactory.Create(builder.Configuration);
 
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton(refreshTokenOptions);
+builder.Services.AddSingleton(topicPaginationOptions);
 
 builder.Services.AddForumPasswordHashing(builder.Configuration);
 

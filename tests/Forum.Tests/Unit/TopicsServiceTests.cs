@@ -87,7 +87,11 @@ public class TopicsServiceTests
     }
 
     private static TopicsService CreateService(ForumDbContext dbContext) =>
-        new(dbContext, new ActiveUserBanService(dbContext));
+        new(dbContext, new ActiveUserBanService(dbContext), new TopicPaginationOptions
+        {
+            DefaultPageSize = 2,
+            MaxPageSize = 3
+        });
 
     private static ForumDbContext CreateDbContext()
     {
