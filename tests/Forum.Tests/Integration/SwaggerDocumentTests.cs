@@ -26,6 +26,7 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
         Assert.Contains("/api/users/{userId}", document);
         Assert.Contains("/api/users/me", document);
         Assert.Contains("/api/topics", document);
+        Assert.Contains("/api/topics/{topicId}/posts", document);
         Assert.True(swaggerUiResponse.IsSuccessStatusCode);
     }
 
