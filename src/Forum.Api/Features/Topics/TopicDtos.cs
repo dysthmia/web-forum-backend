@@ -17,6 +17,23 @@ public class CreateTopicRequest
 
 public record CreateTopicResponse(long TopicId);
 
+public class UpdateTopicRequest
+{
+    [Required]
+    [StringLength(200)]
+    public string? Title { get; init; }
+}
+
+public class SetTopicClosedRequest
+{
+    public bool IsClosed { get; init; }
+}
+
+public class SetTopicPinnedRequest
+{
+    public bool IsPinned { get; init; }
+}
+
 public class TopicPageRequest
 {
     [Range(1, int.MaxValue)]

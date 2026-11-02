@@ -45,6 +45,16 @@ public record TopicDetailsResult(TopicDetailsResponse? Response, TopicReadFailur
     public static TopicDetailsResult Failed(TopicReadFailure failure) => new(null, failure);
 }
 
+public record TopicActor(long UserId, bool CanModerate);
+
+public enum TopicManagementFailure
+{
+    None,
+    InvalidRequest,
+    NotFound,
+    Forbidden
+}
+
 public class TopicsService(
     ForumDbContext dbContext,
     ActiveUserBanService banService,
@@ -285,4 +295,109 @@ public class TopicsService(
                || string.Equals(sort, "recent", StringComparison.OrdinalIgnoreCase)
                || sortByPopularity;
     }
+
+    public async Task<TopicManagementFailure> UpdateTitleAsync(
+        long topicId,
+        TopicActor actor,
+        UpdateTopicRequest request,
+        CancellationToken cancellationToken)
+    {
+        var title = request.Title?.Trim() ?? string.Empty;
+        if (title.Length is 0 or > 200)
+        {
+            return TopicManagementFailure.InvalidRequest;
+        }
+
+        var topic = await GetActiveTopicAsync(topicId, cancellationToken);
+        if (topic is null)
+        {
+            return TopicManagementFailure.NotFound;
+        }
+
+        if (!CanManage(topic, actor))
+        {
+            return TopicManagementFailure.Forbidden;
+        }
+
+        topic.Title = title;
+        topic.UpdatedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return TopicManagementFailure.None;
+    }
+
+    public async Task<TopicManagementFailure> SetClosedAsync(
+        long topicId,
+        TopicActor actor,
+        SetTopicClosedRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!actor.CanModerate)
+        {
+            return TopicManagementFailure.Forbidden;
+        }
+
+        var topic = await GetActiveTopicAsync(topicId, cancellationToken);
+        if (topic is null)
+        {
+            return TopicManagementFailure.NotFound;
+        }
+
+        topic.IsClosed = request.IsClosed;
+        topic.UpdatedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return TopicManagementFailure.None;
+    }
+
+    public async Task<TopicManagementFailure> SetPinnedAsync(
+        long topicId,
+        TopicActor actor,
+        SetTopicPinnedRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!actor.CanModerate)
+        {
+            return TopicManagementFailure.Forbidden;
+        }
+
+        var topic = await GetActiveTopicAsync(topicId, cancellationToken);
+        if (topic is null)
+        {
+            return TopicManagementFailure.NotFound;
+        }
+
+        topic.IsPinned = request.IsPinned;
+        topic.UpdatedAt = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return TopicManagementFailure.None;
+    }
+
+    public async Task<TopicManagementFailure> DeleteAsync(
+        long topicId,
+        TopicActor actor,
+        CancellationToken cancellationToken)
+    {
+        var topic = await GetActiveTopicAsync(topicId, cancellationToken);
+        if (topic is null)
+        {
+            return TopicManagementFailure.NotFound;
+        }
+
+        if (!CanManage(topic, actor))
+        {
+            return TopicManagementFailure.Forbidden;
+        }
+
+        var now = DateTime.UtcNow;
+        topic.DeletedAt = now;
+        topic.DeletedBy = actor.UserId;
+        topic.UpdatedAt = now;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return TopicManagementFailure.None;
+    }
+
+    private Task<Topic?> GetActiveTopicAsync(long topicId, CancellationToken cancellationToken) =>
+        dbContext.Topics.SingleOrDefaultAsync(topic => topic.Id == topicId && topic.DeletedAt == null, cancellationToken);
+
+    private static bool CanManage(Topic topic, TopicActor actor) =>
+        actor.CanModerate || topic.AuthorId == actor.UserId;
 }

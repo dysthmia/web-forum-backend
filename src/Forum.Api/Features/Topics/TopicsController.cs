@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Forum.Api.Common.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -47,6 +48,50 @@ public class TopicsController(TopicsService topicsService) : ControllerBase
         };
     }
 
+    [HttpPut("{topicId:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateTitle(
+        long topicId,
+        UpdateTopicRequest request,
+        CancellationToken cancellationToken) =>
+        ToManagementResponse(await topicsService.UpdateTitleAsync(topicId, GetActor(), request, cancellationToken));
+
+    [Authorize(Policy = "Moderator")]
+    [HttpPut("{topicId:long}/closed")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetClosed(
+        long topicId,
+        SetTopicClosedRequest request,
+        CancellationToken cancellationToken) =>
+        ToManagementResponse(await topicsService.SetClosedAsync(topicId, GetActor(), request, cancellationToken));
+
+    [Authorize(Policy = "Moderator")]
+    [HttpPut("{topicId:long}/pinned")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetPinned(
+        long topicId,
+        SetTopicPinnedRequest request,
+        CancellationToken cancellationToken) =>
+        ToManagementResponse(await topicsService.SetPinnedAsync(topicId, GetActor(), request, cancellationToken));
+
+    [HttpDelete("{topicId:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(long topicId, CancellationToken cancellationToken) =>
+        ToManagementResponse(await topicsService.DeleteAsync(topicId, GetActor(), cancellationToken));
+
     [HttpPost]
     [ProducesResponseType<CreateTopicResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -75,4 +120,18 @@ public class TopicsController(TopicsService topicsService) : ControllerBase
             _ => BadRequest(new ProblemDetails { Title = "Provide a valid category, title, and first message." })
         };
     }
+
+    private TopicActor GetActor()
+    {
+        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+        return new TopicActor(userId, User.IsInRole(ForumRoles.Moderator) || User.IsInRole(ForumRoles.Admin));
+    }
+
+    private IActionResult ToManagementResponse(TopicManagementFailure failure) => failure switch
+    {
+        TopicManagementFailure.None => NoContent(),
+        TopicManagementFailure.Forbidden => Forbid(),
+        TopicManagementFailure.NotFound => NotFound(new ProblemDetails { Title = "Topic was not found." }),
+        _ => BadRequest(new ProblemDetails { Title = "Provide a valid topic title." })
+    };
 }
