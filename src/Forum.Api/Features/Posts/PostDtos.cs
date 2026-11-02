@@ -9,3 +9,9 @@ public class CreatePostRequest
 }
 
 public record CreatePostResponse(long PostId, int Position);
+
+public class UpdatePostRequest
+{
+    [Required]
+    public string? Content { get; init; }
+}

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Forum.Api.Common.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,6 +10,28 @@ namespace Forum.Api.Features.Posts;
 [Route("api/topics/{topicId:long}/posts")]
 public class PostsController(PostsService postsService) : ControllerBase
 {
+    [HttpPut("{postId:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Update(
+        long topicId,
+        long postId,
+        UpdatePostRequest request,
+        CancellationToken cancellationToken) =>
+        ToManagementResponse(await postsService.UpdateAsync(topicId, postId, GetActor(), request, cancellationToken));
+
+    [HttpDelete("{postId:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Delete(long topicId, long postId, CancellationToken cancellationToken) =>
+        ToManagementResponse(await postsService.DeleteAsync(topicId, postId, GetActor(), cancellationToken));
+
     [HttpPost]
     [ProducesResponseType<CreatePostResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -38,4 +61,23 @@ public class PostsController(PostsService postsService) : ControllerBase
             _ => BadRequest(new ProblemDetails { Title = "Provide non-empty post content." })
         };
     }
+
+    private PostActor GetActor()
+    {
+        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
+        return new PostActor(userId, User.IsInRole(ForumRoles.Moderator) || User.IsInRole(ForumRoles.Admin));
+    }
+
+    private IActionResult ToManagementResponse(PostManagementFailure failure) => failure switch
+    {
+        PostManagementFailure.None => NoContent(),
+        PostManagementFailure.Forbidden => Forbid(),
+        PostManagementFailure.NotFound => NotFound(new ProblemDetails { Title = "Post was not found." }),
+        PostManagementFailure.FirstPostCannotBeDeleted => Conflict(new ProblemDetails
+        {
+            Title = "The first post can only be removed by deleting its topic."
+        }),
+        PostManagementFailure.Deleted => Conflict(new ProblemDetails { Title = "Deleted posts cannot be changed." }),
+        _ => BadRequest(new ProblemDetails { Title = "Provide non-empty post content." })
+    };
 }

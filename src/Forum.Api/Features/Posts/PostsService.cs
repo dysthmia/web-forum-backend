@@ -23,6 +23,18 @@ public record CreatePostResult(CreatePostResponse? Response, CreatePostFailure F
     public static CreatePostResult Failed(CreatePostFailure failure) => new(null, failure);
 }
 
+public record PostActor(long UserId, bool CanModerate);
+
+public enum PostManagementFailure
+{
+    None,
+    InvalidRequest,
+    NotFound,
+    Forbidden,
+    Deleted,
+    FirstPostCannotBeDeleted
+}
+
 public class PostsService(ForumDbContext dbContext, ActiveUserBanService banService)
 {
     public async Task<CreatePostResult> CreateAsync(
@@ -114,4 +126,77 @@ public class PostsService(ForumDbContext dbContext, ActiveUserBanService banServ
             return CreatePostResult.Failed(CreatePostFailure.CreationFailed);
         }
     }
+
+    public async Task<PostManagementFailure> UpdateAsync(
+        long topicId,
+        long postId,
+        PostActor actor,
+        UpdatePostRequest request,
+        CancellationToken cancellationToken)
+    {
+        var content = request.Content?.Trim() ?? string.Empty;
+        if (content.Length == 0)
+        {
+            return PostManagementFailure.InvalidRequest;
+        }
+
+        var post = await GetPostAsync(topicId, postId, cancellationToken);
+        if (post is null)
+        {
+            return PostManagementFailure.NotFound;
+        }
+
+        if (post.DeletedAt is not null)
+        {
+            return PostManagementFailure.Deleted;
+        }
+
+        if (!CanManage(post, actor))
+        {
+            return PostManagementFailure.Forbidden;
+        }
+
+        post.Content = content;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return PostManagementFailure.None;
+    }
+
+    public async Task<PostManagementFailure> DeleteAsync(
+        long topicId,
+        long postId,
+        PostActor actor,
+        CancellationToken cancellationToken)
+    {
+        var post = await GetPostAsync(topicId, postId, cancellationToken);
+        if (post is null)
+        {
+            return PostManagementFailure.NotFound;
+        }
+
+        if (post.DeletedAt is not null)
+        {
+            return PostManagementFailure.Deleted;
+        }
+
+        if (post.Position == 1)
+        {
+            return PostManagementFailure.FirstPostCannotBeDeleted;
+        }
+
+        if (!CanManage(post, actor))
+        {
+            return PostManagementFailure.Forbidden;
+        }
+
+        post.DeletedAt = DateTime.UtcNow;
+        post.DeletedBy = actor.UserId;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return PostManagementFailure.None;
+    }
+
+    private Task<Post?> GetPostAsync(long topicId, long postId, CancellationToken cancellationToken) =>
+        dbContext.Posts.SingleOrDefaultAsync(post => post.Id == postId && post.TopicId == topicId, cancellationToken);
+
+    private static bool CanManage(Post post, PostActor actor) =>
+        actor.CanModerate || post.AuthorId == actor.UserId;
 }
