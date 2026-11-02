@@ -3,6 +3,7 @@ using System.Text;
 using Forum.Api.Common.Authorization;
 using Forum.Api.Features.Auth;
 using Forum.Api.Features.Users;
+using Forum.Api.Features.Categories;
 using Forum.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -15,19 +16,27 @@ builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddSwaggerGen(options =>
     options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "Forum.Api.xml")));
+
 var jwtOptions = JwtOptionsFactory.Create(builder.Configuration);
 var refreshTokenOptions = RefreshTokenOptionsFactory.Create(builder.Configuration);
+
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton(refreshTokenOptions);
+
 builder.Services.AddForumPasswordHashing(builder.Configuration);
+
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UsersService>();
+builder.Services.AddScoped<CategoriesService>();
 builder.Services.AddScoped<ActiveUserBanService>();
+
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserRequirementHandler>();
+
 builder.Services.AddDbContext<ForumDbContext>(options =>
     options.UseNpgsql(PostgresConnectionStringFactory.Create(builder.Configuration)));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -45,6 +54,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = ClaimTypes.Role
         };
     });
+    
 builder.Services.AddAuthorization(options =>
 {
     options.DefaultPolicy = CreateActiveUserPolicy();
@@ -76,5 +86,3 @@ static AuthorizationPolicy CreateActiveUserPolicy() => new AuthorizationPolicyBu
     .RequireAuthenticatedUser()
     .AddRequirements(new ActiveUserRequirement())
     .Build();
-
-public partial class Program;
