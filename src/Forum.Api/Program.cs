@@ -4,6 +4,7 @@ using Forum.Api.Common.Authorization;
 using Forum.Api.Features.Auth;
 using Forum.Api.Features.Users;
 using Forum.Api.Features.Categories;
+using Forum.Api.Features.Topics;
 using Forum.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +31,7 @@ builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UsersService>();
 builder.Services.AddScoped<CategoriesService>();
+builder.Services.AddScoped<TopicsService>();
 builder.Services.AddScoped<ActiveUserBanService>();
 
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserRequirementHandler>();
