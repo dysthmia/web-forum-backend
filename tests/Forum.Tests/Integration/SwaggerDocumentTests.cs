@@ -14,7 +14,7 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
     }
 
     [Fact]
-    public async Task SwaggerDocument_IncludesAllAuthenticationEndpoints()
+    public async Task SwaggerDocument_IncludesAuthenticationAndUserProfileEndpoints()
     {
         var document = await _client.GetStringAsync("/swagger/v1/swagger.json");
         using var swaggerUiResponse = await _client.GetAsync("/swagger/index.html");
@@ -23,6 +23,8 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
         Assert.Contains("/api/auth/login", document);
         Assert.Contains("/api/auth/refresh", document);
         Assert.Contains("/api/auth/logout", document);
+        Assert.Contains("/api/users/{userId}", document);
+        Assert.Contains("/api/users/me", document);
         Assert.True(swaggerUiResponse.IsSuccessStatusCode);
     }
 
