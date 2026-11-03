@@ -30,6 +30,11 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
         Assert.Contains("/api/posts/{postId}/reactions", document);
         Assert.Contains("/api/reactions/counts", document);
         Assert.Contains("/api/bookmarks", document);
+        Assert.Contains("/api/reports", document);
+        Assert.Contains("/api/moderation/reports", document);
+        Assert.Contains("/api/moderation/bans", document);
+        Assert.Contains("/api/moderation/users/{userId}/bans", document);
+        Assert.Contains("/api/search", document);
         Assert.True(swaggerUiResponse.IsSuccessStatusCode);
     }
 
