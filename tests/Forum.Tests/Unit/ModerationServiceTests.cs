@@ -1,4 +1,5 @@
 using Forum.Api.Features.Moderation;
+using Forum.Api.Features.Topics;
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,7 @@ public class ModerationServiceTests
         await using var dbContext = CreateDbContext();
         var (report, moderator, post) = await SeedReportAsync(dbContext, postPosition: 2);
 
-        var failure = await new ModerationService(dbContext).ReviewAsync(report.Id, moderator.Id,
+        var failure = await CreateService(dbContext).ReviewAsync(report.Id, moderator.Id,
             new ReviewReportRequest { Status = "accepted", HidePost = true }, CancellationToken.None);
 
         var reviewedReport = await dbContext.Reports.SingleAsync();
@@ -33,7 +34,7 @@ public class ModerationServiceTests
         await using var dbContext = CreateDbContext();
         var (report, moderator, _) = await SeedReportAsync(dbContext, postPosition: 2);
 
-        var failure = await new ModerationService(dbContext).ReviewAsync(report.Id, moderator.Id,
+        var failure = await CreateService(dbContext).ReviewAsync(report.Id, moderator.Id,
             new ReviewReportRequest { Status = "rejected", HidePost = false }, CancellationToken.None);
 
         Assert.Equal(ReviewReportFailure.None, failure);
@@ -47,7 +48,7 @@ public class ModerationServiceTests
         await using var dbContext = CreateDbContext();
         var (report, moderator, _) = await SeedReportAsync(dbContext, postPosition: 1);
 
-        var failure = await new ModerationService(dbContext).ReviewAsync(report.Id, moderator.Id,
+        var failure = await CreateService(dbContext).ReviewAsync(report.Id, moderator.Id,
             new ReviewReportRequest { Status = "accepted", HidePost = true }, CancellationToken.None);
 
         Assert.Equal(ReviewReportFailure.FirstPostCannotBeHidden, failure);
@@ -60,7 +61,7 @@ public class ModerationServiceTests
     {
         await using var dbContext = CreateDbContext();
         var (report, moderator, _) = await SeedReportAsync(dbContext, postPosition: 2);
-        var service = new ModerationService(dbContext);
+        var service = CreateService(dbContext);
 
         var first = await service.ReviewAsync(report.Id, moderator.Id,
             new ReviewReportRequest { Status = "accepted" }, CancellationToken.None);
@@ -85,7 +86,7 @@ public class ModerationServiceTests
         resolved.ResolvedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync();
 
-        var reports = await new ModerationService(dbContext).GetPendingReportsAsync(CancellationToken.None);
+        var reports = await CreateService(dbContext).GetPendingReportsAsync(CancellationToken.None);
 
         Assert.Single(reports);
         Assert.Equal(pending.Id, reports[0].ReportId);
@@ -142,6 +143,10 @@ public class ModerationServiceTests
             .Options;
         return new ForumDbContext(options);
     }
+
+    private static ModerationService CreateService(ForumDbContext dbContext) => new(
+        dbContext,
+        new TopicPaginationOptions { DefaultPageSize = 10, MaxPageSize = 50 });
 
     private static User CreateUser(string username, string email, UserRole role = UserRole.User) => new()
     {

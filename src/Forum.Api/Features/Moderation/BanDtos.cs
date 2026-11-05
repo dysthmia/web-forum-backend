@@ -25,3 +25,19 @@ public record BanHistoryResponse(
     DateTime CreatedAt,
     DateTime? ExpiresAt,
     DateTime? RevokedAt);
+
+public class BanListRequest
+{
+    [StringLength(32)]
+    public string? Query { get; init; }
+
+    public string? Status { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int Page { get; init; } = 1;
+
+    [Range(1, int.MaxValue)]
+    public int? PageSize { get; init; }
+}
+
+public record BanListResponse(IReadOnlyList<BanHistoryResponse> Items, int Page, int PageSize, int TotalCount);

@@ -1,5 +1,6 @@
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
+using Forum.Api.Features.Topics;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -36,7 +37,7 @@ public record BanResult(BanResponse? Response, BanFailure Failure)
     public static BanResult Failed(BanFailure failure) => new(null, failure);
 }
 
-public class ModerationService(ForumDbContext dbContext)
+public class ModerationService(ForumDbContext dbContext, TopicPaginationOptions paginationOptions)
 {
     public async Task<IReadOnlyList<PendingReportResponse>> GetPendingReportsAsync(CancellationToken cancellationToken) =>
         await dbContext.Reports.AsNoTracking()
@@ -266,6 +267,46 @@ public class ModerationService(ForumDbContext dbContext)
         return (history, BanFailure.None);
     }
 
+    public async Task<(BanListResponse? Response, BanFailure Failure)> GetBansAsync(
+        BanListRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetPage(request, out var page, out var pageSize, out var skip)
+            || !TryParseBanStatus(request.Status, out var status))
+        {
+            return (null, BanFailure.InvalidRequest);
+        }
+
+        var queryText = request.Query?.Trim().ToLowerInvariant();
+        var now = DateTime.UtcNow;
+        var bans = dbContext.UserBans.AsNoTracking()
+            .Where(ban => string.IsNullOrEmpty(queryText) || ban.User.Username.ToLower().Contains(queryText));
+        bans = status switch
+        {
+            "active" => bans.Where(ban => ban.RevokedAt == null && (ban.ExpiresAt == null || ban.ExpiresAt > now)),
+            "expired" => bans.Where(ban => ban.RevokedAt == null && ban.ExpiresAt != null && ban.ExpiresAt <= now),
+            "revoked" => bans.Where(ban => ban.RevokedAt != null),
+            _ => bans
+        };
+
+        var totalCount = await bans.CountAsync(cancellationToken);
+        var items = await bans.OrderByDescending(ban => ban.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
+            .Select(ban => new BanHistoryResponse(
+                ban.Id,
+                ban.UserId,
+                ban.User.Username,
+                ban.ModeratorId,
+                ban.Moderator.Username,
+                ban.Reason,
+                ban.CreatedAt,
+                ban.ExpiresAt,
+                ban.RevokedAt))
+            .ToListAsync(cancellationToken);
+        return (new BanListResponse(items, page, pageSize, totalCount), BanFailure.None);
+    }
+
     private async Task<BanResult> CreateBanWithLockedUserAsync(
         BanActor actor,
         CreateBanRequest request,
@@ -355,4 +396,42 @@ public class ModerationService(ForumDbContext dbContext)
 
     private static bool CanManageUser(BanActor actor, User user) =>
         user.Role != UserRole.Admin && (actor.IsAdmin || user.Role == UserRole.User);
+
+    private bool TryGetPage(BanListRequest request, out int page, out int pageSize, out int skip)
+    {
+        page = request.Page;
+        pageSize = Math.Min(request.PageSize ?? paginationOptions.DefaultPageSize, paginationOptions.MaxPageSize);
+        skip = 0;
+        if (page < 1 || pageSize < 1)
+        {
+            return false;
+        }
+
+        var skipValue = ((long)page - 1) * pageSize;
+        if (skipValue > int.MaxValue)
+        {
+            return false;
+        }
+
+        skip = (int)skipValue;
+        return true;
+    }
+
+    private static bool TryParseBanStatus(string? rawStatus, out string? status)
+    {
+        status = null;
+        if (string.IsNullOrWhiteSpace(rawStatus))
+        {
+            return true;
+        }
+
+        var normalized = rawStatus.Trim().ToLowerInvariant();
+        if (normalized is not ("active" or "expired" or "revoked"))
+        {
+            return false;
+        }
+
+        status = normalized;
+        return true;
+    }
 }

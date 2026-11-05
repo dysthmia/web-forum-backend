@@ -10,6 +10,19 @@ namespace Forum.Api.Features.Moderation;
 [Route("api/moderation/reports")]
 public class ModerationController(ModerationService moderationService) : ControllerBase
 {
+    [HttpGet("/api/moderation/bans")]
+    [ProducesResponseType<BanListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetBans([FromQuery] BanListRequest request, CancellationToken cancellationToken)
+    {
+        var (response, failure) = await moderationService.GetBansAsync(request, cancellationToken);
+        return failure == BanFailure.None
+            ? Ok(response)
+            : BadRequest(new ProblemDetails { Title = "Provide valid status and pagination values." });
+    }
+
     [HttpGet("/api/moderation/users/{userId:long}/bans")]
     [ProducesResponseType<IReadOnlyList<BanHistoryResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -26,6 +39,7 @@ public class ModerationController(ModerationService moderationService) : Control
         };
     }
 
+    /// <summary>Creates a ban. Moderators must provide a future expiresAt; admins may use null for a permanent ban.</summary>
     [HttpPost("/api/moderation/bans")]
     [ProducesResponseType<BanResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

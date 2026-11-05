@@ -37,6 +37,8 @@ public class SwaggerDocumentTests : IClassFixture<SwaggerDocumentTests.ForumAppl
         Assert.Contains("/api/moderation/reports", document);
         Assert.Contains("/api/moderation/bans", document);
         Assert.Contains("/api/moderation/users/{userId}/bans", document);
+        Assert.Contains("/api/admin/users", document);
+        Assert.Contains("/api/admin/users/{userId}/role", document);
         Assert.Contains("/api/search", document);
         Assert.True(swaggerUiResponse.IsSuccessStatusCode);
     }

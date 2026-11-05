@@ -51,6 +51,7 @@ builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BookmarksService>();
 builder.Services.AddScoped<UsersService>();
+builder.Services.AddScoped<AdminUsersService>();
 builder.Services.AddScoped<CategoriesService>();
 builder.Services.AddScoped<PostsService>();
 builder.Services.AddScoped<ReactionsService>();
