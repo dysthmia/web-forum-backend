@@ -1,5 +1,22 @@
-appsettings.json
-bin/
-obj/
 .env
+appsettings.json
 .DS_Store
+
+out/pgdata/
+**/bin/
+**/obj/
+TestResults/
+
+# IDE and user-specific files
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Testcontainers and local logs
+.testcontainers.properties
+*.log
+
+out/
