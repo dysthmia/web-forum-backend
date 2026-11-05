@@ -11,11 +11,14 @@ using Forum.Api.Features.Reports;
 using Forum.Api.Features.Moderation;
 using Forum.Api.Features.Search;
 using Forum.Api.Features.Topics;
+using Forum.Api.Infrastructure.BackgroundJobs;
 using Forum.Api.Infrastructure.Persistence;
+using Forum.Api.Infrastructure.Redis;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,10 +30,12 @@ builder.Services.AddSwaggerGen(options =>
 var jwtOptions = JwtOptionsFactory.Create(builder.Configuration);
 var refreshTokenOptions = RefreshTokenOptionsFactory.Create(builder.Configuration);
 var topicPaginationOptions = TopicPaginationOptionsFactory.Create(builder.Configuration);
+var redisOptions = RedisOptionsFactory.Create(builder.Configuration);
 
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton(refreshTokenOptions);
 builder.Services.AddSingleton(topicPaginationOptions);
+builder.Services.AddSingleton(redisOptions);
 
 builder.Services.AddForumPasswordHashing(builder.Configuration);
 
@@ -47,6 +52,11 @@ builder.Services.AddScoped<ModerationService>();
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<TopicsService>();
 builder.Services.AddScoped<ActiveUserBanService>();
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.CreateConnectionOptions()));
+builder.Services.AddSingleton<ViewCounterService>();
+builder.Services.AddSingleton<CacheService>();
+builder.Services.AddSingleton<RateLimitService>();
+builder.Services.AddHostedService<ViewCounterBackgroundService>();
 
 builder.Services.AddScoped<IAuthorizationHandler, ActiveUserRequirementHandler>();
 
