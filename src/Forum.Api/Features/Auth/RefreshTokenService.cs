@@ -14,6 +14,8 @@ public class RefreshTokenOptions
 
 public record TokenPair(string AccessToken, string RefreshToken);
 
+public record RotatedTokenPair(User User, TokenPair Tokens);
+
 public class RefreshTokenService(
     ForumDbContext dbContext,
     JwtTokenService jwtTokenService,
@@ -37,7 +39,7 @@ public class RefreshTokenService(
         return new TokenPair(jwtTokenService.CreateAccessToken(user), refreshToken);
     }
 
-    public async Task<AuthResponse?> RotateAsync(string refreshToken, CancellationToken cancellationToken)
+    public async Task<RotatedTokenPair?> RotateAsync(string refreshToken, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var tokenHash = HashToken(refreshToken);
@@ -78,13 +80,9 @@ public class RefreshTokenService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return new AuthResponse(
-            token.User.Id,
-            token.User.Username,
-            token.User.Email,
-            token.User.Role.ToString().ToLowerInvariant(),
-            jwtTokenService.CreateAccessToken(token.User),
-            newRefreshToken);
+        return new RotatedTokenPair(
+            token.User,
+            new TokenPair(jwtTokenService.CreateAccessToken(token.User), newRefreshToken));
     }
 
     public async Task<bool> RevokeAsync(string refreshToken, CancellationToken cancellationToken)

@@ -24,3 +24,5 @@ public record BookmarkListResponse(
     int Page,
     int PageSize,
     int TotalCount);
+
+public record BookmarkStatusResponse(bool IsBookmarked);

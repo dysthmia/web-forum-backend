@@ -76,6 +76,23 @@ public class BookmarksServiceTests
         Assert.Empty(dbContext.Bookmarks);
     }
 
+    [Fact]
+    public async Task GetStatusAsync_ReturnsCurrentUsersBookmarkState()
+    {
+        await using var dbContext = CreateDbContext();
+        var (topic, user, otherUser) = await SeedAsync(dbContext);
+        dbContext.Bookmarks.Add(new Bookmark { UserId = otherUser.Id, TopicId = topic.Id, CreatedAt = DateTime.UtcNow });
+        await dbContext.SaveChangesAsync();
+        var service = CreateService(dbContext);
+
+        var notBookmarked = await service.GetStatusAsync(user.Id, topic.Id, CancellationToken.None);
+        await service.AddAsync(user.Id, topic.Id, CancellationToken.None);
+        var bookmarked = await service.GetStatusAsync(user.Id, topic.Id, CancellationToken.None);
+
+        Assert.False(notBookmarked.Response!.IsBookmarked);
+        Assert.True(bookmarked.Response!.IsBookmarked);
+    }
+
     private static BookmarksService CreateService(ForumDbContext dbContext) => new(
         dbContext,
         new ActiveUserBanService(dbContext),

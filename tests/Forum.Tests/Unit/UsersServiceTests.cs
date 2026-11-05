@@ -70,6 +70,24 @@ public class UsersServiceTests
     }
 
     [Fact]
+    public async Task GetPublicProfileByUsernameAsync_FindsUserIgnoringCase()
+    {
+        await using var dbContext = CreateDbContext();
+        var user = CreateUser("Alice", "alice@example.com");
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var result = await new UsersService(dbContext).GetPublicProfileByUsernameAsync(
+            "alice",
+            CancellationToken.None);
+
+        Assert.Equal(UserProfileFailure.None, result.Failure);
+        Assert.NotNull(result.PublicProfile);
+        Assert.Equal(user.Id, result.PublicProfile.Id);
+        Assert.Equal("Alice", result.PublicProfile.Username);
+    }
+
+    [Fact]
     public async Task UpdateOwnProfileAsync_ReturnsConflict_WhenUsernameBelongsToAnotherUser()
     {
         await using var dbContext = CreateDbContext();

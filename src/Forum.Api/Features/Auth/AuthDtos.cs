@@ -26,14 +26,14 @@ public class LoginRequest
 
 public class RefreshRequest
 {
-    [Required, StringLength(1024, MinimumLength = 32)]
-    public string RefreshToken { get; init; } = string.Empty;
+    [StringLength(1024, MinimumLength = 32)]
+    public string? RefreshToken { get; init; }
 }
 
 public class LogoutRequest
 {
-    [Required, StringLength(1024, MinimumLength = 32)]
-    public string RefreshToken { get; init; } = string.Empty;
+    [StringLength(1024, MinimumLength = 32)]
+    public string? RefreshToken { get; init; }
 }
 
-public record AuthResponse(long UserId, string Username, string Email, string Role, string AccessToken, string RefreshToken);
+public record AuthResponse(long UserId, string Username, string Email, string Role, string AccessToken);

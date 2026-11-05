@@ -57,6 +57,11 @@ public class ReactionsController(ReactionsService reactionsService) : Controller
     [AllowAnonymous]
     [HttpGet("/api/reactions/counts")]
     [ProducesResponseType<IReadOnlyList<ReactionCountsResponse>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetCounts([FromQuery] long[] postIds, CancellationToken cancellationToken) =>
-        Ok(await reactionsService.GetCountsAsync(postIds, cancellationToken));
+    public async Task<IActionResult> GetCounts([FromQuery] long[] postIds, CancellationToken cancellationToken)
+    {
+        var currentUserId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
+            ? userId
+            : (long?)null;
+        return Ok(await reactionsService.GetCountsAsync(postIds, currentUserId, cancellationToken));
+    }
 }

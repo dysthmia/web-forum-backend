@@ -117,6 +117,7 @@ public class ReactionsService(ForumDbContext dbContext, ActiveUserBanService ban
 
     public async Task<IReadOnlyList<ReactionCountsResponse>> GetCountsAsync(
         IReadOnlyCollection<long> postIds,
+        long? currentUserId,
         CancellationToken cancellationToken)
     {
         var ids = postIds.Where(id => id > 0).Distinct().ToArray();
@@ -133,10 +134,26 @@ public class ReactionsService(ForumDbContext dbContext, ActiveUserBanService ban
             .Select(group => new ReactionCountsResponse(
                 group.Key,
                 group.Count(reaction => reaction.Type == ReactionType.Like),
-                group.Count(reaction => reaction.Type == ReactionType.Dislike)))
+                group.Count(reaction => reaction.Type == ReactionType.Dislike),
+                null))
             .ToDictionaryAsync(item => item.PostId, cancellationToken);
 
-        return ids.Select(postId => counts.GetValueOrDefault(postId, new ReactionCountsResponse(postId, 0, 0))).ToArray();
+        var currentUserReactions = currentUserId is null
+            ? new Dictionary<long, int>()
+            : await dbContext.Reactions.AsNoTracking()
+                .Where(reaction => reaction.UserId == currentUserId
+                                   && ids.Contains(reaction.PostId)
+                                   && reaction.Post.DeletedAt == null
+                                   && reaction.Post.Topic.DeletedAt == null)
+                .ToDictionaryAsync(reaction => reaction.PostId, reaction => (int)reaction.Type, cancellationToken);
+
+        return ids.Select(postId =>
+        {
+            var countsForPost = counts.GetValueOrDefault(postId, new ReactionCountsResponse(postId, 0, 0, null));
+            return currentUserReactions.TryGetValue(postId, out var type)
+                ? countsForPost with { CurrentUserReaction = type }
+                : countsForPost;
+        }).ToArray();
     }
 
     private async Task<ReactionResult> SetAfterConflictAsync(

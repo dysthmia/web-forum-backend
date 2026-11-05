@@ -29,15 +29,22 @@ builder.Services.AddSwaggerGen(options =>
 
 var jwtOptions = JwtOptionsFactory.Create(builder.Configuration);
 var refreshTokenOptions = RefreshTokenOptionsFactory.Create(builder.Configuration);
+var refreshSessionOptions = RefreshSessionOptionsFactory.Create(builder.Configuration);
 var topicPaginationOptions = TopicPaginationOptionsFactory.Create(builder.Configuration);
 var redisOptions = RedisOptionsFactory.Create(builder.Configuration);
 
 builder.Services.AddSingleton(jwtOptions);
 builder.Services.AddSingleton(refreshTokenOptions);
+builder.Services.AddSingleton(refreshSessionOptions);
 builder.Services.AddSingleton(topicPaginationOptions);
 builder.Services.AddSingleton(redisOptions);
 
 builder.Services.AddForumPasswordHashing(builder.Configuration);
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
+    .WithOrigins(refreshSessionOptions.AllowedOrigins.ToArray())
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
 
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<RefreshTokenService>();
@@ -93,6 +100,7 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors("Frontend");
 
 if (app.Environment.IsDevelopment())
 {

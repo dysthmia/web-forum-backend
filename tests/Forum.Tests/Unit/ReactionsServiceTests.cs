@@ -87,11 +87,12 @@ public class ReactionsServiceTests
             new Reaction { UserId = secondUser.Id, PostId = secondPost.Id, Type = ReactionType.Like, CreatedAt = DateTime.UtcNow });
         await dbContext.SaveChangesAsync();
 
-        var counts = await CreateService(dbContext).GetCountsAsync([firstPost.Id, secondPost.Id], CancellationToken.None);
+        var counts = await CreateService(dbContext).GetCountsAsync(
+            [firstPost.Id, secondPost.Id], firstUser.Id, CancellationToken.None);
 
         Assert.Collection(counts,
-            item => { Assert.Equal(firstPost.Id, item.PostId); Assert.Equal(1, item.LikeCount); Assert.Equal(1, item.DislikeCount); },
-            item => { Assert.Equal(secondPost.Id, item.PostId); Assert.Equal(1, item.LikeCount); Assert.Equal(0, item.DislikeCount); });
+            item => { Assert.Equal(firstPost.Id, item.PostId); Assert.Equal(1, item.LikeCount); Assert.Equal(1, item.DislikeCount); Assert.Equal(1, item.CurrentUserReaction); },
+            item => { Assert.Equal(secondPost.Id, item.PostId); Assert.Equal(1, item.LikeCount); Assert.Equal(0, item.DislikeCount); Assert.Null(item.CurrentUserReaction); });
     }
 
     private static ReactionsService CreateService(ForumDbContext dbContext) =>

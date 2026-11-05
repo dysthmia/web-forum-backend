@@ -23,6 +23,13 @@ public record BookmarkListResult(BookmarkListResponse? Response, BookmarkFailure
     public static BookmarkListResult Failed(BookmarkFailure failure) => new(null, failure);
 }
 
+public record BookmarkStatusResult(BookmarkStatusResponse? Response, BookmarkFailure Failure)
+{
+    public static BookmarkStatusResult Succeeded(bool isBookmarked) => new(new BookmarkStatusResponse(isBookmarked), BookmarkFailure.None);
+
+    public static BookmarkStatusResult Failed(BookmarkFailure failure) => new(null, failure);
+}
+
 public class BookmarksService(
     ForumDbContext dbContext,
     ActiveUserBanService banService,
@@ -120,6 +127,26 @@ public class BookmarksService(
             .ToListAsync(cancellationToken);
 
         return BookmarkListResult.Succeeded(new BookmarkListResponse(items, page, pageSize, totalCount));
+    }
+
+    public async Task<BookmarkStatusResult> GetStatusAsync(long userId, long topicId, CancellationToken cancellationToken)
+    {
+        var accessFailure = await GetAccessFailureAsync(userId, cancellationToken);
+        if (accessFailure != BookmarkFailure.None)
+        {
+            return BookmarkStatusResult.Failed(accessFailure);
+        }
+
+        var topicExists = await dbContext.Topics.AsNoTracking()
+            .AnyAsync(topic => topic.Id == topicId && topic.DeletedAt == null, cancellationToken);
+        if (!topicExists)
+        {
+            return BookmarkStatusResult.Failed(BookmarkFailure.TopicNotFound);
+        }
+
+        var isBookmarked = await dbContext.Bookmarks.AsNoTracking()
+            .AnyAsync(bookmark => bookmark.UserId == userId && bookmark.TopicId == topicId, cancellationToken);
+        return BookmarkStatusResult.Succeeded(isBookmarked);
     }
 
     private async Task<BookmarkFailure> GetAccessFailureAsync(long userId, CancellationToken cancellationToken)

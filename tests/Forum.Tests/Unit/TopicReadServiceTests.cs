@@ -45,6 +45,58 @@ public class TopicReadServiceTests
     }
 
     [Fact]
+    public async Task GetTopicsAsync_ReturnsTopicsFromAllCategories_ByPopularity()
+    {
+        await using var dbContext = CreateDbContext();
+        var firstCategory = new Category { Name = "First", Slug = "first" };
+        var secondCategory = new Category { Name = "Second", Slug = "second" };
+        var author = CreateUser();
+        dbContext.AddRange(firstCategory, secondCategory, author);
+        await dbContext.SaveChangesAsync();
+        var now = DateTime.UtcNow;
+        dbContext.Topics.AddRange(
+            new Topic
+            {
+                CategoryId = firstCategory.Id,
+                AuthorId = author.Id,
+                Title = "Older with views",
+                ViewCount = 10,
+                CreatedAt = now.AddMinutes(-1),
+                UpdatedAt = now.AddMinutes(-1)
+            },
+            new Topic
+            {
+                CategoryId = secondCategory.Id,
+                AuthorId = author.Id,
+                Title = "Newer with fewer views",
+                ViewCount = 5,
+                CreatedAt = now,
+                UpdatedAt = now
+            },
+            new Topic
+            {
+                CategoryId = secondCategory.Id,
+                AuthorId = author.Id,
+                Title = "Deleted",
+                ViewCount = 100,
+                CreatedAt = now,
+                UpdatedAt = now,
+                DeletedAt = now
+            });
+        await dbContext.SaveChangesAsync();
+
+        var result = await CreateService(dbContext).GetTopicsAsync(
+            new GetTopicsRequest { Sort = "popular", PageSize = 3 },
+            CancellationToken.None);
+
+        Assert.Equal(TopicReadFailure.None, result.Failure);
+        Assert.Equal(2, result.Response!.TotalCount);
+        Assert.Collection(result.Response.Items,
+            topic => Assert.Equal("Older with views", topic.Title),
+            topic => Assert.Equal("Newer with fewer views", topic.Title));
+    }
+
+    [Fact]
     public async Task GetDetailsAsync_ReturnsFirstPostAndOrderedActiveReplies()
     {
         await using var dbContext = CreateDbContext();

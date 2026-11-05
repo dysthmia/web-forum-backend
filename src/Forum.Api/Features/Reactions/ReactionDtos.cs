@@ -10,4 +10,4 @@ public class SetReactionRequest
 
 public record ReactionResponse(long PostId, int Type);
 
-public record ReactionCountsResponse(long PostId, int LikeCount, int DislikeCount);
+public record ReactionCountsResponse(long PostId, int LikeCount, int DislikeCount, int? CurrentUserReaction);

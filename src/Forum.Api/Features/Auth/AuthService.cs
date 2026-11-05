@@ -15,11 +15,11 @@ public enum AuthFailure
     InvalidRefreshToken
 }
 
-public record AuthResult(AuthResponse? Response, AuthFailure Failure)
+public record AuthResult(AuthResponse? Response, string? RefreshToken, AuthFailure Failure)
 {
-    public static AuthResult Failed(AuthFailure failure) => new(null, failure);
+    public static AuthResult Failed(AuthFailure failure) => new(null, null, failure);
 
-    public static AuthResult Succeeded(AuthResponse response) => new(response, AuthFailure.None);
+    public static AuthResult Succeeded(AuthResponse response, string refreshToken) => new(response, refreshToken, AuthFailure.None);
 }
 
 public class AuthService(
@@ -64,7 +64,7 @@ public class AuthService(
         }
 
         var tokens = await refreshTokenService.CreateAsync(user, cancellationToken);
-        return AuthResult.Succeeded(ToResponse(user, tokens));
+        return AuthResult.Succeeded(ToResponse(user, tokens), tokens.RefreshToken);
     }
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -85,20 +85,20 @@ public class AuthService(
         }
 
         var tokens = await refreshTokenService.CreateAsync(user, cancellationToken);
-        return AuthResult.Succeeded(ToResponse(user, tokens));
+        return AuthResult.Succeeded(ToResponse(user, tokens), tokens.RefreshToken);
     }
 
     public async Task<AuthResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
     {
-        var token = await refreshTokenService.RotateAsync(refreshToken, cancellationToken);
-        return token is null
+        var tokens = await refreshTokenService.RotateAsync(refreshToken, cancellationToken);
+        return tokens is null
             ? AuthResult.Failed(AuthFailure.InvalidRefreshToken)
-            : AuthResult.Succeeded(token);
+            : AuthResult.Succeeded(ToResponse(tokens.User, tokens.Tokens), tokens.Tokens.RefreshToken);
     }
 
     public Task LogoutAsync(string refreshToken, CancellationToken cancellationToken) =>
         refreshTokenService.RevokeAsync(refreshToken, cancellationToken);
 
     private static AuthResponse ToResponse(User user, TokenPair tokens) =>
-        new(user.Id, user.Username, user.Email, user.Role.ToString().ToLowerInvariant(), tokens.AccessToken, tokens.RefreshToken);
+        new(user.Id, user.Username, user.Email, user.Role.ToString().ToLowerInvariant(), tokens.AccessToken);
 }
