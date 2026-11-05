@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Forum.Api.Infrastructure.Redis;
 
 namespace Forum.Api.Features.Auth;
 
 [ApiController]
 [AllowAnonymous]
 [Route("api/auth")]
-public class AuthController(AuthService authService) : ControllerBase
+public class AuthController(AuthService authService, RateLimitService rateLimitService) : ControllerBase
 {
     [HttpPost("register")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status201Created)]
@@ -22,8 +23,28 @@ public class AuthController(AuthService authService) : ControllerBase
     [HttpPost("login")]
     [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
     {
+        var rateLimit = await rateLimitService.CheckLoginAsync(request.UsernameOrEmail, cancellationToken);
+        if (rateLimit.Status == RateLimitStatus.Unavailable)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails
+            {
+                Title = "Login is temporarily unavailable."
+            });
+        }
+
+        if (rateLimit.Status == RateLimitStatus.Limited)
+        {
+            Response.Headers.RetryAfter = Math.Ceiling(rateLimit.RetryAfter.TotalSeconds).ToString();
+            return StatusCode(StatusCodes.Status429TooManyRequests, new ProblemDetails
+            {
+                Title = "Too many login attempts. Try again later."
+            });
+        }
+
         var result = await authService.LoginAsync(request, cancellationToken);
         return result.Failure == AuthFailure.None
             ? Ok(result.Response)

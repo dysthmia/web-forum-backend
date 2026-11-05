@@ -37,6 +37,33 @@ public class UsersService(ForumDbContext dbContext)
             : UserProfileResult.Public(ToPublicResponse(profile));
     }
 
+    public async Task<UserProfileResult> GetPublicProfileByUsernameAsync(
+        string username,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return UserProfileResult.NotFound();
+        }
+
+        var normalizedUsername = username.Trim().ToLowerInvariant();
+        var profile = await dbContext.Users.AsNoTracking()
+            .Where(user => user.Username.ToLower() == normalizedUsername)
+            .Select(user => new UserProfileData(
+                user.Id,
+                user.Username,
+                user.Email,
+                user.Role,
+                user.CreatedAt,
+                dbContext.Topics.Count(topic => topic.AuthorId == user.Id && topic.DeletedAt == null),
+                dbContext.Posts.Count(post => post.AuthorId == user.Id && post.DeletedAt == null)))
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return profile is null
+            ? UserProfileResult.NotFound()
+            : UserProfileResult.Public(ToPublicResponse(profile));
+    }
+
     public async Task<UserProfileResult> GetOwnProfileAsync(long userId, CancellationToken cancellationToken)
     {
         var profile = await GetProfileAsync(userId, cancellationToken);

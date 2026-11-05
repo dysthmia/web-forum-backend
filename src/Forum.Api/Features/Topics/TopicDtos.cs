@@ -48,6 +48,11 @@ public class GetCategoryTopicsRequest : TopicPageRequest
     public string? Sort { get; init; }
 }
 
+public class GetTopicsRequest : TopicPageRequest
+{
+    public string? Sort { get; init; }
+}
+
 public record PagedResponse<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 
 public record TopicListItemResponse(

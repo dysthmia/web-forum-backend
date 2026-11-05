@@ -1,5 +1,6 @@
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
+using Forum.Api.Infrastructure.Redis;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -21,10 +22,20 @@ public record CategoryResult(CategoryResponse? Category, CategoryFailure Failure
     public static CategoryResult Failed(CategoryFailure failure) => new(null, failure);
 }
 
-public class CategoriesService(ForumDbContext dbContext)
+public class CategoriesService(ForumDbContext dbContext, CacheService? cacheService = null)
 {
-    public async Task<IReadOnlyList<CategoryResponse>> GetListAsync(CancellationToken cancellationToken) =>
-        await dbContext.Categories.AsNoTracking()
+    public async Task<IReadOnlyList<CategoryResponse>> GetListAsync(CancellationToken cancellationToken)
+    {
+        if (cacheService is not null)
+        {
+            var cachedCategories = await cacheService.GetCategoriesAsync(cancellationToken);
+            if (cachedCategories is not null)
+            {
+                return cachedCategories;
+            }
+        }
+
+        var categories = await dbContext.Categories.AsNoTracking()
             .OrderBy(category => category.Name)
             .Select(category => new CategoryResponse(
                 category.Id,
@@ -32,6 +43,14 @@ public class CategoriesService(ForumDbContext dbContext)
                 category.Slug,
                 category.Description))
             .ToListAsync(cancellationToken);
+
+        if (cacheService is not null)
+        {
+            await cacheService.SetCategoriesAsync(categories, cancellationToken);
+        }
+
+        return categories;
+    }
 
     public async Task<CategoryResult> GetBySlugAsync(string slug, CancellationToken cancellationToken)
     {
@@ -69,6 +88,7 @@ public class CategoriesService(ForumDbContext dbContext)
             return CategoryResult.Failed(CategoryFailure.DuplicateSlug);
         }
 
+        await InvalidateCategoriesAsync(cancellationToken);
         return CategoryResult.Success(ToResponse(category));
     }
 
@@ -94,9 +114,13 @@ public class CategoriesService(ForumDbContext dbContext)
         category.Slug = slug;
         category.Description = description;
 
-        return await TrySaveAsync(cancellationToken)
-            ? CategoryResult.Success(ToResponse(category))
-            : CategoryResult.Failed(CategoryFailure.DuplicateSlug);
+        if (!await TrySaveAsync(cancellationToken))
+        {
+            return CategoryResult.Failed(CategoryFailure.DuplicateSlug);
+        }
+
+        await InvalidateCategoriesAsync(cancellationToken);
+        return CategoryResult.Success(ToResponse(category));
     }
 
     public async Task<CategoryFailure> DeleteAsync(long categoryId, CancellationToken cancellationToken)
@@ -116,6 +140,7 @@ public class CategoriesService(ForumDbContext dbContext)
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);
+            await InvalidateCategoriesAsync(cancellationToken);
             return CategoryFailure.None;
         }
         catch (DbUpdateException exception) when (exception.InnerException is PostgresException
@@ -158,4 +183,7 @@ public class CategoriesService(ForumDbContext dbContext)
 
     private static CategoryResponse ToResponse(Category category) =>
         new(category.Id, category.Name, category.Slug, category.Description);
+
+    private Task InvalidateCategoriesAsync(CancellationToken cancellationToken) =>
+        cacheService?.InvalidateCategoriesAsync(cancellationToken) ?? Task.CompletedTask;
 }

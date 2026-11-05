@@ -9,6 +9,18 @@ namespace Forum.Api.Features.Users;
 public class UsersController(UsersService usersService) : ControllerBase
 {
     [AllowAnonymous]
+    [HttpGet("by-username/{username}")]
+    [ProducesResponseType<PublicUserProfileResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPublicProfileByUsername(string username, CancellationToken cancellationToken)
+    {
+        var result = await usersService.GetPublicProfileByUsernameAsync(username, cancellationToken);
+        return result.Failure == UserProfileFailure.None
+            ? Ok(result.PublicProfile)
+            : NotFound(new ProblemDetails { Title = "User was not found." });
+    }
+
+    [AllowAnonymous]
     [HttpGet("{userId:long}")]
     [ProducesResponseType<PublicUserProfileResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -1,6 +1,7 @@
 using Forum.Api.Common.Authorization;
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
+using Forum.Api.Infrastructure.Redis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -58,7 +59,8 @@ public enum TopicManagementFailure
 public class TopicsService(
     ForumDbContext dbContext,
     ActiveUserBanService banService,
-    TopicPaginationOptions paginationOptions)
+    TopicPaginationOptions paginationOptions,
+    CacheService? cacheService = null)
 {
     public async Task<CreateTopicResult> CreateAsync(
         long authorId,
@@ -126,6 +128,7 @@ public class TopicsService(
                     await transaction.CommitAsync(cancellationToken);
                 }
 
+                await InvalidateCategoryAsync(topic.CategoryId, cancellationToken);
                 return CreateTopicResult.Succeeded(new CreateTopicResponse(topic.Id));
             }
             catch (DbUpdateException)
@@ -164,34 +167,41 @@ public class TopicsService(
             return TopicListResult.Failed(TopicReadFailure.CategoryNotFound);
         }
 
+        var sort = sortByPopularity ? "popular" : "recent";
+        if (cacheService is not null)
+        {
+            var cachedResponse = await cacheService.GetCategoryTopicsAsync(categoryId, sort, page, pageSize, cancellationToken);
+            if (cachedResponse is not null)
+            {
+                return TopicListResult.Succeeded(cachedResponse);
+            }
+        }
+
         var query = dbContext.Topics.AsNoTracking()
             .Where(topic => topic.CategoryId == categoryId && topic.DeletedAt == null);
-        var totalCount = await query.CountAsync(cancellationToken);
-        var orderedQuery = sortByPopularity
-            ? query.OrderByDescending(topic => topic.IsPinned)
-                .ThenByDescending(topic => topic.ViewCount)
-                .ThenByDescending(topic => topic.CreatedAt)
-            : query.OrderByDescending(topic => topic.IsPinned)
-                .ThenByDescending(topic => topic.CreatedAt);
+        var response = await GetTopicListAsync(query, sortByPopularity, page, pageSize, skip, cancellationToken);
+        if (cacheService is not null)
+        {
+            await cacheService.SetCategoryTopicsAsync(categoryId, sort, page, pageSize, response, cancellationToken);
+        }
 
-        var items = await orderedQuery
-            .Skip(skip)
-            .Take(pageSize)
-            .Select(topic => new TopicListItemResponse(
-                topic.Id,
-                topic.AuthorId,
-                topic.Title,
-                topic.ViewCount,
-                topic.IsClosed,
-                topic.IsPinned,
-                topic.CreatedAt,
-                topic.UpdatedAt,
-                dbContext.Posts.Count(post => post.TopicId == topic.Id
-                                               && post.Position > 1
-                                               && post.DeletedAt == null)))
-            .ToListAsync(cancellationToken);
+        return TopicListResult.Succeeded(response);
+    }
 
-        return TopicListResult.Succeeded(new PagedResponse<TopicListItemResponse>(items, page, pageSize, totalCount));
+    public async Task<TopicListResult> GetTopicsAsync(
+        GetTopicsRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetPage(request, out var page, out var pageSize, out var skip)
+            || !TryGetSort(request.Sort, out var sortByPopularity))
+        {
+            return TopicListResult.Failed(TopicReadFailure.InvalidRequest);
+        }
+
+        var query = dbContext.Topics.AsNoTracking()
+            .Where(topic => topic.DeletedAt == null);
+        var response = await GetTopicListAsync(query, sortByPopularity, page, pageSize, skip, cancellationToken);
+        return TopicListResult.Succeeded(response);
     }
 
     public async Task<TopicDetailsResult> GetDetailsAsync(
@@ -296,6 +306,42 @@ public class TopicsService(
                || sortByPopularity;
     }
 
+    private async Task<PagedResponse<TopicListItemResponse>> GetTopicListAsync(
+        IQueryable<Topic> query,
+        bool sortByPopularity,
+        int page,
+        int pageSize,
+        int skip,
+        CancellationToken cancellationToken)
+    {
+        var totalCount = await query.CountAsync(cancellationToken);
+        var orderedQuery = sortByPopularity
+            ? query.OrderByDescending(topic => topic.IsPinned)
+                .ThenByDescending(topic => topic.ViewCount)
+                .ThenByDescending(topic => topic.CreatedAt)
+            : query.OrderByDescending(topic => topic.IsPinned)
+                .ThenByDescending(topic => topic.CreatedAt);
+
+        var items = await orderedQuery
+            .Skip(skip)
+            .Take(pageSize)
+            .Select(topic => new TopicListItemResponse(
+                topic.Id,
+                topic.AuthorId,
+                topic.Title,
+                topic.ViewCount,
+                topic.IsClosed,
+                topic.IsPinned,
+                topic.CreatedAt,
+                topic.UpdatedAt,
+                dbContext.Posts.Count(post => post.TopicId == topic.Id
+                                               && post.Position > 1
+                                               && post.DeletedAt == null)))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResponse<TopicListItemResponse>(items, page, pageSize, totalCount);
+    }
+
     public async Task<TopicManagementFailure> UpdateTitleAsync(
         long topicId,
         TopicActor actor,
@@ -322,6 +368,7 @@ public class TopicsService(
         topic.Title = title;
         topic.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await InvalidateCategoryAsync(topic.CategoryId, cancellationToken);
         return TopicManagementFailure.None;
     }
 
@@ -345,6 +392,7 @@ public class TopicsService(
         topic.IsClosed = request.IsClosed;
         topic.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await InvalidateCategoryAsync(topic.CategoryId, cancellationToken);
         return TopicManagementFailure.None;
     }
 
@@ -368,6 +416,7 @@ public class TopicsService(
         topic.IsPinned = request.IsPinned;
         topic.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await InvalidateCategoryAsync(topic.CategoryId, cancellationToken);
         return TopicManagementFailure.None;
     }
 
@@ -392,6 +441,7 @@ public class TopicsService(
         topic.DeletedBy = actor.UserId;
         topic.UpdatedAt = now;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await InvalidateCategoryAsync(topic.CategoryId, cancellationToken);
         return TopicManagementFailure.None;
     }
 
@@ -400,4 +450,7 @@ public class TopicsService(
 
     private static bool CanManage(Topic topic, TopicActor actor) =>
         actor.CanModerate || topic.AuthorId == actor.UserId;
+
+    private Task InvalidateCategoryAsync(long categoryId, CancellationToken cancellationToken) =>
+        cacheService?.InvalidateCategoryAsync(categoryId, cancellationToken) ?? Task.CompletedTask;
 }
