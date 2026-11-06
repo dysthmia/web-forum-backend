@@ -28,4 +28,10 @@ public class UpdateOwnProfileRequest
     [EmailAddress]
     [StringLength(254)]
     public string? Email { get; init; }
+
+    [StringLength(128, MinimumLength = 8)]
+    public string? NewPassword { get; init; }
+
+    [StringLength(128, MinimumLength = 8)]
+    public string? CurrentPassword { get; init; }
 }

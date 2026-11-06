@@ -57,7 +57,10 @@ public record PagedResponse<T>(IReadOnlyList<T> Items, int Page, int PageSize, i
 
 public record TopicListItemResponse(
     long Id,
+    long CategoryId,
+    string CategoryName,
     long AuthorId,
+    string AuthorUsername,
     string Title,
     long ViewCount,
     bool IsClosed,
@@ -69,6 +72,7 @@ public record TopicListItemResponse(
 public record TopicPostResponse(
     long Id,
     long AuthorId,
+    string AuthorUsername,
     int Position,
     string Content,
     DateTime CreatedAt,

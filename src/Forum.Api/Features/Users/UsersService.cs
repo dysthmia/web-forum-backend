@@ -1,5 +1,6 @@
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
+using Forum.Api.Features.Auth;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -10,7 +11,8 @@ public enum UserProfileFailure
     None,
     NotFound,
     DuplicateUser,
-    InvalidRequest
+    InvalidRequest,
+    IncorrectPassword
 }
 
 public record UserProfileResult(
@@ -27,7 +29,7 @@ public record UserProfileResult(
     public static UserProfileResult Own(OwnUserProfileResponse profile) => new(null, profile, UserProfileFailure.None);
 }
 
-public class UsersService(ForumDbContext dbContext)
+public class UsersService(ForumDbContext dbContext, PasswordService? passwordService = null)
 {
     public async Task<UserProfileResult> GetPublicProfileAsync(long userId, CancellationToken cancellationToken)
     {
@@ -79,9 +81,13 @@ public class UsersService(ForumDbContext dbContext)
     {
         var username = request.Username?.Trim();
         var email = request.Email?.Trim();
+        var newPassword = request.NewPassword;
+        var currentPassword = request.CurrentPassword;
         if ((username is not null && string.IsNullOrWhiteSpace(username))
             || (email is not null && string.IsNullOrWhiteSpace(email))
-            || (username is null && email is null))
+            || (newPassword is not null && string.IsNullOrWhiteSpace(newPassword))
+            || (newPassword is null && currentPassword is not null)
+            || (username is null && email is null && newPassword is null))
         {
             return UserProfileResult.Failed(UserProfileFailure.InvalidRequest);
         }
@@ -90,6 +96,14 @@ public class UsersService(ForumDbContext dbContext)
         if (user is null)
         {
             return UserProfileResult.NotFound();
+        }
+
+        if (newPassword is not null
+            && (string.IsNullOrWhiteSpace(currentPassword)
+                || passwordService is null
+                || !passwordService.VerifyPassword(user, currentPassword)))
+        {
+            return UserProfileResult.Failed(UserProfileFailure.IncorrectPassword);
         }
 
         var normalizedUsername = username?.ToLowerInvariant();
@@ -112,6 +126,11 @@ public class UsersService(ForumDbContext dbContext)
         if (email is not null)
         {
             user.Email = email;
+        }
+
+        if (newPassword is not null)
+        {
+            user.PasswordHash = passwordService!.HashPassword(user, newPassword);
         }
 
         try

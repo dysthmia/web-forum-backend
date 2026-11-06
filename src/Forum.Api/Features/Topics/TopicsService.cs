@@ -239,6 +239,7 @@ public class TopicsService(
             .Select(post => new TopicPostResponse(
                 post.Id,
                 post.AuthorId,
+                post.Author.Username,
                 post.Position,
                 post.Content,
                 post.CreatedAt,
@@ -258,6 +259,7 @@ public class TopicsService(
             .Select(post => new TopicPostResponse(
                 post.Id,
                 post.AuthorId,
+                post.Author.Username,
                 post.Position,
                 post.Content,
                 post.CreatedAt,
@@ -327,7 +329,10 @@ public class TopicsService(
             .Take(pageSize)
             .Select(topic => new TopicListItemResponse(
                 topic.Id,
+                topic.CategoryId,
+                topic.Category.Name,
                 topic.AuthorId,
+                topic.Author.Username,
                 topic.Title,
                 topic.ViewCount,
                 topic.IsClosed,

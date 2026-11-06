@@ -78,6 +78,10 @@ public class UsersController(UsersService usersService) : ControllerBase
             {
                 Title = "Provide a non-empty username or email."
             }),
+            UserProfileFailure.IncorrectPassword => BadRequest(new ProblemDetails
+            {
+                Title = "Current password is incorrect."
+            }),
             _ => NotFound(new ProblemDetails { Title = "User was not found." })
         };
     }
