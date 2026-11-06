@@ -94,6 +94,9 @@ public class TopicReadServiceTests
         Assert.Collection(result.Response.Items,
             topic => Assert.Equal("Older with views", topic.Title),
             topic => Assert.Equal("Newer with fewer views", topic.Title));
+        Assert.Equal(firstCategory.Id, result.Response.Items[0].CategoryId);
+        Assert.Equal("First", result.Response.Items[0].CategoryName);
+        Assert.Equal("author", result.Response.Items[0].AuthorUsername);
     }
 
     [Fact]
@@ -130,10 +133,12 @@ public class TopicReadServiceTests
 
         Assert.Equal(TopicReadFailure.None, result.Failure);
         Assert.Equal(1, result.Response!.FirstPost.Position);
+        Assert.Equal("author", result.Response.FirstPost.AuthorUsername);
         Assert.Equal(2, result.Response.Replies.TotalCount);
         Assert.Collection(result.Response.Replies.Items,
             post => Assert.Equal(2, post.Position),
             post => Assert.Equal(3, post.Position));
+        Assert.All(result.Response.Replies.Items, post => Assert.Equal("author", post.AuthorUsername));
     }
 
     private static TopicsService CreateService(ForumDbContext dbContext) => new(

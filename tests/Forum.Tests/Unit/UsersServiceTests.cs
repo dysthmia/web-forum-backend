@@ -1,7 +1,9 @@
 using Forum.Api.Features.Users;
+using Forum.Api.Features.Auth;
 using Forum.Api.Infrastructure.Persistence;
 using Forum.Api.Infrastructure.Persistence.Entities;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -122,6 +124,33 @@ public class UsersServiceTests
         Assert.NotNull(result.OwnProfile);
         Assert.Equal("old-name", result.OwnProfile.Username);
         Assert.Equal("new@example.com", result.OwnProfile.Email);
+    }
+
+    [Fact]
+    public async Task UpdateOwnProfileAsync_ChangesPasswordOnlyAfterCurrentPasswordIsVerified()
+    {
+        await using var dbContext = CreateDbContext();
+        var passwordService = new PasswordService(new PasswordHasher<User>());
+        var user = CreateUser("current-user", "current@example.com");
+        user.PasswordHash = passwordService.HashPassword(user, "current-password");
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var service = new UsersService(dbContext, passwordService);
+        var rejected = await service.UpdateOwnProfileAsync(user.Id, new UpdateOwnProfileRequest
+        {
+            CurrentPassword = "wrong-password",
+            NewPassword = "new-password"
+        }, CancellationToken.None);
+        var updated = await service.UpdateOwnProfileAsync(user.Id, new UpdateOwnProfileRequest
+        {
+            CurrentPassword = "current-password",
+            NewPassword = "new-password"
+        }, CancellationToken.None);
+
+        Assert.Equal(UserProfileFailure.IncorrectPassword, rejected.Failure);
+        Assert.Equal(UserProfileFailure.None, updated.Failure);
+        Assert.True(passwordService.VerifyPassword(user, "new-password"));
     }
 
     [Fact]
