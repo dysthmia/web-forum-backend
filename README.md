@@ -1,33 +1,33 @@
-# Web Forum API
 
-ASP.NET Core API форума с PostgreSQL 16, Redis, JWT access-токенами и refresh-сессией в HttpOnly cookie.
+![Логотип Fomo Forum](docs/fomo_forum_logo.png)
 
-## Требования
+<h1 align="center">Fomo - Forum</h1>
 
-- .NET SDK 10
-- Docker и Docker Compose
+<p align="center">
+  <img src="https://img.shields.io/badge/C%23-171717?style=for-the-badge&logo=dotnet&logoColor=white" alt="C#" />
+  <img src="https://img.shields.io/badge/ASP.NET_Core-171717?style=for-the-badge&logo=dotnet&logoColor=white" alt="ASP.NET Core" />
+  <img src="https://img.shields.io/badge/PostgreSQL-171717?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Redis-171717?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
+  <img src="https://img.shields.io/badge/Docker-171717?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+</p>
 
-## Быстрый старт
+> REST API для тематических обсуждений на ASP.NET Core, PostgreSQL и Redis.
 
-1. Скопируйте `.env.example` в локальный `.env` и задайте безопасные значения секретов.
-2. Запустите хранилища: `make postgres-up` и `make redis-up`.
-3. Примените миграции: `make migrate`.
-4. Запустите API из IDE или полностью через Compose: `make app-up`.
+Web Forum предоставляет пользователей, категории, темы, сообщения, реакции, избранное и инструменты модерации. Backend работает вместе с [frontend-репозиторием](https://github.com/dysthmia/web-forum-frontend).
 
-API в development-режиме публикует Swagger UI по `/swagger`. Проверка готовности доступна по `/health/ready`.
+## Возможности
 
-## Основные команды
+- **Пользователи и авторизация** — JWT access-токены, refresh-сессии, профили и роли.
+- **Категории и темы** — создание, ответы, редактирование и soft delete.
+- **Реакции и избранное** — лайки, дизлайки и сохранённые темы.
+- **Полнотекстовый поиск** — русские и английские тексты через PostgreSQL.
+- **Модерация** — жалобы, управление темами, временные и бессрочные блокировки.
+- **Redis** — кэширование, подсчёт уникальных просмотров и rate limiting.
 
-- `make build` — сборка API.
-- `make test` — запуск тестов.
-- `make app-up` / `make app-down` — запуск и остановка API в Compose.
-- `make ps` — статус контейнеров.
-- `make postgres-cleanup` — удаление локальных данных PostgreSQL после явного подтверждения `YES`.
+## Документация
 
-## Конфигурация
-
-Все параметры окружения, включая PostgreSQL, Redis, JWT, cookie refresh-сессии, CORS, кеширование, подсчёт просмотров и rate limit, документированы в `.env.example`. Файл `.env` не хранится в репозитории.
-
-## Тесты
-
-Тестовый проект расположен в `tests/Forum.Tests`. Он запускается локальным .NET SDK командой `make test` или `dotnet test tests/Forum.Tests/Forum.Tests.csproj`.
+| Раздел | Описание |
+| --- | --- |
+| [База данных](docs/database/README.md) | PostgreSQL, Redis и диаграммы keyspace/ER. |
+| [Быстрый старт](docs/quick-start/README.md) | Локальный запуск, Compose, команды, конфигурация и тесты. |
+| [Frontend](https://github.com/dysthmia/web-forum-frontend) | Клиентское приложение форума. |
