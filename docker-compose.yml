@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
     volumes:
-      - ${PROJECT_ROOT:-.}/out/pgdata:/var/lib/postgresql/data
+      - ${PROJECT_ROOT:-.}/out/pgdata:/var/lib/postgresql/data:Z
     restart: always
     ports:
       - ${POSTGRES_HOST_PORT:?Set POSTGRES_HOST_PORT in .env}

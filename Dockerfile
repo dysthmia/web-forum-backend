@@ -19,6 +19,9 @@ EXPOSE 8080
 ENTRYPOINT ["dotnet", "Forum.Api.dll"]
 
 FROM build AS migrate
+
+RUN apk add --no-cache krb5-libs
+
 RUN dotnet tool install --tool-path /tools dotnet-ef --version ${DOTNET_VERSION}
 
 ENTRYPOINT ["/bin/sh", "-c"]

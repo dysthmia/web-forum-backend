@@ -38,7 +38,7 @@ postgres-cleanup:
 	if [ "$$ans" = "YES" ]; then \
 		docker compose stop postgres && \
 		docker compose rm -f postgres && \
-		rm -rf -- "$(PROJECT_ROOT)/out/pgdata" && \
+		sudo rm -rf -- "$(PROJECT_ROOT)/out/pgdata" && \
 		echo 'Данные PostgreSQL очищены'; \
 	else \
 		echo 'Очистка отменена'; \
